@@ -14,7 +14,7 @@ import sys
 from _utils import list_patches, panic
 
 
-def get_next_patch(current_patch, patches_dir):
+def get_next_patch(current_patch: str, patches_dir: str):
     """Get the next patch file after the given patch"""
     patches = list(list_patches(patches_dir))
 
