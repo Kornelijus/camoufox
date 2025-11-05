@@ -39,21 +39,20 @@ Since Camoufox is NOT meant to be used as a daily driver, no installers are prov
 import argparse
 import glob
 import os
-import sys
 from dataclasses import dataclass
-from typing import List
 import shutil
 import multiprocessing
 import subprocess
 
 from const import AVAILABLE_ARCHS, AVAILABLE_TARGETS, BuildArch, BuildTarget
+from _utils import panic, update_rustup
 
 FIREFOX_VERSION = os.getenv("FIREFOX_VERSION")
 CAMOUFOX_RELEASE = os.getenv("CAMOUFOX_RELEASE", "dev")
 CAMOUFOX_SRC_DIR = f"camoufox-{FIREFOX_VERSION}-{CAMOUFOX_RELEASE}"
 
 
-def get_moz_target(target, arch):
+def get_moz_target(target: BuildTarget | str, arch: BuildArch | str) -> str:
     """Get moz_target from target and arch (copied from _mixin.py)"""
     if target == BuildTarget.LINUX:
         return (
@@ -72,31 +71,15 @@ def get_moz_target(target, arch):
     raise ValueError(f"Unsupported target: {target}")
 
 
-def update_rustup(target):
-    """Add rust targets for the given platform"""
-    rust_targets = {
-        BuildTarget.LINUX: ["aarch64-unknown-linux-gnu", "i686-unknown-linux-gnu"],
-        BuildTarget.WINDOWS: [
-            "x86_64-pc-windows-msvc",
-            "aarch64-pc-windows-msvc",
-            "i686-pc-windows-msvc",
-        ],
-        BuildTarget.MACOS: ["x86_64-apple-darwin", "aarch64-apple-darwin"],
-    }
-    for rust_target in rust_targets.get(target, []):
-        os.system(f'~/.cargo/bin/rustup target add "{rust_target}"')
-
-
-def run(cmd, exit_on_fail=True):
+def run(cmd: str, exit_on_fail: bool = True):
     print(f"\n------------\n{cmd}\n------------\n")
     retval = os.system(cmd)
     if retval != 0 and exit_on_fail:
-        print(f"fatal error: command '{cmd}' failed")
-        sys.exit(1)
+        panic(f"fatal error: command '{cmd}' failed")
     return retval
 
 
-def run_with_prefix(cmd, prefix, exit_on_fail=True):
+def run_with_prefix(cmd: str, prefix: str, exit_on_fail=True):
     """
     Run a command and prefix all output lines with [prefix]
     Returns the exit code
@@ -124,7 +107,7 @@ def run_with_prefix(cmd, prefix, exit_on_fail=True):
         )
 
     # Stream output with prefix in real-time
-    for line in iter(process.stdout.readline, b""):
+    for line in iter(process.stdout.readline, b""):  # type: ignore[union-attr]
         decoded_line = line.decode("utf-8", errors="replace")
         print(f"[{prefix}] {decoded_line}", end="", flush=True)
 
@@ -150,9 +133,8 @@ class BSYS:
         """Bootstrap the build system"""
         run("make bootstrap")
 
-    def generate_mozconfig(self, output_path, verbose=True):
+    def generate_mozconfig(self, output_path: str):
         """Generate a mozconfig file for this target/arch at specified path"""
-        # Read base mozconfig
         with open("firefox/assets/base.mozconfig", "r") as f:
             content = f.read()
 
@@ -166,14 +148,10 @@ class BSYS:
             with open(platform_config, "r") as f:
                 content += f.read()
 
-        # Write to output path
         with open(output_path, "w") as f:
             f.write(content)
 
-        if verbose:
-            print(f"Generated mozconfig for {self.target}/{self.arch} at {output_path}")
-
-    def build(self, mozconfig_path=None, prefix=None):
+    def build(self, mozconfig_path: str | None = None, prefix: str | None = None):
         """Build the Camoufox source code"""
 
         # Set MOZCONFIG if provided, otherwise use BUILD_TARGET (legacy)
@@ -191,7 +169,7 @@ class BSYS:
         else:
             run(cmd)
 
-    def package(self, mozconfig_path=None, prefix=None):
+    def package(self, mozconfig_path: str | None = None, prefix: str | None = None):
         """Package the Camoufox source code using scripts/package.py"""
 
         # Build the package.py command (same for both sequential and parallel)
@@ -210,24 +188,24 @@ class BSYS:
         else:
             run(cmd)
 
-    def update_target(self):
+    def update_target(self) -> None:
         """Change the build target (legacy method for sequential builds)"""
         os.environ["BUILD_TARGET"] = f"{self.target},{self.arch}"
         run("make set-target")
 
     @property
-    def assets(self) -> List[str]:
+    def assets(self) -> list[str]:
         """Get the list of assets"""
         package_pattern = f"camoufox-*-{self.target[:3]}.{self.arch}.zip"
         return glob.glob(package_pattern)
 
     @staticmethod
-    def clean():
+    def clean() -> None:
         """Clean the Camoufox directory"""
         run("make clean")
 
 
-def run_build(target, arch):
+def run_build(target: str, arch: str) -> None:
     """
     Run the build for the given target and architecture (sequential mode)
     """
@@ -244,7 +222,7 @@ def run_build(target, arch):
         shutil.move(asset, f"dist/{asset}")
 
 
-def run_build_parallel(target, arch):
+def run_build_parallel(target: str, arch: str) -> bool:
     """
     Run the build for the given target and architecture (parallel mode)
     Each worker gets its own isolated mozconfig file
@@ -265,7 +243,7 @@ def run_build_parallel(target, arch):
     try:
         # Generate mozconfig
         print(f"[{prefix}] Generating mozconfig at {mozconfig_path}")
-        builder.generate_mozconfig(mozconfig_path, verbose=False)
+        builder.generate_mozconfig(mozconfig_path)
 
         # Build with isolated mozconfig
         builder.build(mozconfig_path=mozconfig_path, prefix=prefix)
@@ -297,7 +275,7 @@ def run_build_parallel(target, arch):
     # Keeping it allows incremental builds without reconfiguration
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Easy build CLI for Camoufox")
     parser.add_argument(
         "--target",
@@ -355,7 +333,10 @@ def main():
         for target in args.target
         for arch in args.arch
         if (target, arch)
-        not in [(BuildTarget.WINDOWS, BuildArch.ARM64), (BuildTarget.MACOS, BuildArch.I686)]
+        not in [
+            (BuildTarget.WINDOWS, BuildArch.ARM64),
+            (BuildTarget.MACOS, BuildArch.I686),
+        ]
     ]
 
     if not combinations:
@@ -389,8 +370,7 @@ def main():
 
             # Check if any builds failed
             if not all(results):
-                print("\nSome builds failed!")
-                sys.exit(1)
+                panic("\nSome builds failed!")
             else:
                 print("\nAll builds completed successfully!")
         finally:

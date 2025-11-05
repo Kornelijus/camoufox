@@ -20,17 +20,15 @@ from _utils import (
     get_moz_target,
     get_options,
     list_patches,
+    panic,
     patch,
     run,
     temp_cd,
+    update_rustup,
 )
-from const import AVAILABLE_ARCHS, AVAILABLE_TARGETS, BuildArch, BuildTarget
+from const import BuildArch, BuildTarget
 
 options, args = get_options()
-
-"""
-Main patcher functions
-"""
 
 
 @dataclass
@@ -40,16 +38,12 @@ class Patcher:
     moz_target: str
     target: str
 
-    def camoufox_patches(self):
-        """
-        Apply all patches
-        """
-        version, release = extract_args()
+    def apply_all(self):
+        version, release = extract_version_and_release()
+
         with temp_cd(find_src_dir(".", version, release)):
-            # Create the base mozconfig file
             run("cp -v ../firefox/assets/base.mozconfig mozconfig")
-            # Set cross building target
-            print(f"Using target: {self.moz_target}")
+            print(f"Using build target: {self.moz_target}")
             self._update_mozconfig()
 
             if not options.mozconfig_only:
@@ -101,71 +95,31 @@ class Patcher:
             f.write(new_hash)
 
 
-def add_rustup(*targets):
-    """Add rust targets"""
-    for rust_target in targets:
-        run(f'~/.cargo/bin/rustup target add "{rust_target}"')
-
-
-def _update_rustup(target):
-    """Add rust targets for the given target"""
-    if target == BuildTarget.LINUX:
-        add_rustup("aarch64-unknown-linux-gnu", "i686-unknown-linux-gnu")
-    elif target == BuildTarget.WINDOWS:
-        add_rustup(
-            "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc", "i686-pc-windows-msvc"
-        )
-    elif target == BuildTarget.MACOS:
-        add_rustup("x86_64-apple-darwin", "aarch64-apple-darwin")
-
-
-"""
-Preparation
-"""
-
-
-def extract_args():
-    """Get version and release from args"""
+def extract_version_and_release():
     if len(args) != 2:
-        sys.stderr.write("error: please specify version and release of camoufox source")
-        sys.exit(1)
+        panic("error: please specify version and release of camoufox source")
     return args[0], args[1]
 
 
-def extract_build_target():
+def extract_build_target() -> tuple[BuildTarget, BuildArch]:
     """Get moz_target if passed to BUILD_TARGET environment variable"""
+    if build_target := os.environ.get("BUILD_TARGET"):
+        target, arch = build_target.split(",")
+        return BuildTarget(target), BuildArch(arch)
+    return BuildTarget.LINUX, BuildArch.X86_64
 
-    if os.environ.get("BUILD_TARGET"):
-        target, arch = os.environ["BUILD_TARGET"].split(",")
-        assert target in AVAILABLE_TARGETS, f"Unsupported target: {target}"
-        assert arch in AVAILABLE_ARCHS, f"Unsupported architecture: {arch}"
-    else:
-        target, arch = BuildTarget.LINUX, BuildArch.X86_64
-    return target, arch
-
-
-"""
-Launcher
-"""
 
 if __name__ == "__main__":
-    # Extract args
-    VERSION, RELEASE = extract_args()
-
+    VERSION, RELEASE = extract_version_and_release()
     TARGET, ARCH = extract_build_target()
     MOZ_TARGET = get_moz_target(TARGET, ARCH)
-    _update_rustup(TARGET)
+    update_rustup(TARGET)
 
-    # Check if the folder exists
-    camoufox_src_dir = f"camoufox-{VERSION}-{RELEASE}/configure.py"
-    if not os.path.exists(camoufox_src_dir):
-        sys.stderr.write(
-            f"error: folder '{camoufox_src_dir}' doesn't look like a Firefox folder."
-        )
-        sys.exit(1)
+    camoufox_src_dir = f"camoufox-{VERSION}-{RELEASE}"
+    if not os.path.exists(f"{camoufox_src_dir}/configure.py"):
+        panic(f"error: folder '{camoufox_src_dir}' doesn't look like a Firefox folder.")
 
-    # Apply the patches
     patcher = Patcher(MOZ_TARGET, TARGET)
-    patcher.camoufox_patches()
+    patcher.apply_all()
 
-    sys.exit(0)  # ensure 0 exit code
+    sys.exit(0)
