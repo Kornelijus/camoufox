@@ -44,12 +44,17 @@ import shutil
 import multiprocessing
 import subprocess
 
-from const import AVAILABLE_ARCHS, AVAILABLE_TARGETS, BuildArch, BuildTarget
+from const import (
+    ASSETS_DIR,
+    AVAILABLE_ARCHS,
+    AVAILABLE_TARGETS,
+    BuildArch,
+    BuildTarget,
+    CAMOUFOX_SRC_DIR,
+    FIREFOX_VERSION,
+    CAMOUFOX_RELEASE,
+)
 from _utils import panic, update_rustup
-
-FIREFOX_VERSION = os.getenv("FIREFOX_VERSION")
-CAMOUFOX_RELEASE = os.getenv("CAMOUFOX_RELEASE", "dev")
-CAMOUFOX_SRC_DIR = f"camoufox-{FIREFOX_VERSION}-{CAMOUFOX_RELEASE}"
 
 
 def get_moz_target(target: BuildTarget | str, arch: BuildArch | str) -> str:
@@ -135,7 +140,7 @@ class BSYS:
 
     def generate_mozconfig(self, output_path: str):
         """Generate a mozconfig file for this target/arch at specified path"""
-        with open("firefox/assets/base.mozconfig", "r") as f:
+        with open(ASSETS_DIR / "base.mozconfig", "r") as f:
             content = f.read()
 
         # Add target
@@ -143,7 +148,8 @@ class BSYS:
         content += f"\nac_add_options --target={moz_target}\n"
 
         # Add platform-specific mozconfig if it exists
-        platform_config = f"firefox/assets/{self.target}.mozconfig"
+        platform_config = ASSETS_DIR / "{self.target}.mozconfig"
+
         if os.path.exists(platform_config):
             with open(platform_config, "r") as f:
                 content += f.read()

@@ -12,7 +12,7 @@ import os
 import re
 import sys
 import time
-from typing import NoReturn
+from typing import NoReturn, Sequence
 
 from const import BuildArch, BuildTarget
 from pathlib import Path
@@ -23,7 +23,7 @@ start_time = time.time()
 @contextlib.contextmanager
 def temp_cd(path: Path | str):
     """Temporarily change to a different working directory"""
-    _old_cwd = os.getcwd()
+    old_cwd = os.getcwd()
     abs_path = os.path.abspath(path)
     assert os.path.exists(abs_path), f"{abs_path} does not exist."
     os.chdir(abs_path)
@@ -31,7 +31,7 @@ def temp_cd(path: Path | str):
     try:
         yield
     finally:
-        os.chdir(_old_cwd)
+        os.chdir(old_cwd)
 
 
 def get_options():
@@ -48,23 +48,6 @@ def get_options():
         action="store_false",
     )
     return parser.parse_args()
-
-
-def find_src_dir(
-    root_dir: str = ".",
-    version: str | None = None,
-    release: str | None = None,
-):
-    """Get the source directory"""
-    if version and release:
-        name = os.path.join(root_dir, f"camoufox-{version}-{release}")
-        assert os.path.exists(name), f"{name} does not exist."
-        return name
-    folders = os.listdir(root_dir)
-    for folder in folders:
-        if os.path.isdir(folder) and folder.startswith("camoufox-"):
-            return os.path.join(root_dir, folder)
-    raise FileNotFoundError("No camoufox-* folder found")
 
 
 def get_moz_target(target: str | BuildTarget, arch: str | BuildArch) -> str:
@@ -116,20 +99,25 @@ def script_exit(statuscode) -> NoReturn:
 
 
 def run(
-    cmd: str,
+    cmd: str | Sequence[str],
     exit_on_fail: bool = True,
     do_print: bool = True,
 ) -> int | None:
     """Run a command"""
+
     if not cmd:
-        return None
+        raise ValueError("no command specified")
+    if isinstance(cmd, Sequence):
+        import shlex
+
+        cmd = shlex.join(cmd)
     if do_print:
         print(cmd, flush=True)
-    retval = os.system(cmd)
-    if retval != 0 and exit_on_fail:
-        print(f"fatal error: command '{cmd}' failed", flush=True)
-        script_exit(1)
-    return retval
+    if exit_code := os.system(cmd):
+        if exit_on_fail:
+            raise ValueError(f"command '{cmd}' failed with exit code {exit_code}'")
+
+    return exit_code
 
 
 def patch(
@@ -183,4 +171,4 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    panic("This is a module, not meant to be called directly.")
+    raise RuntimeError("This is a module, not meant to be called directly.")

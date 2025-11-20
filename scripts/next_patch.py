@@ -54,7 +54,7 @@ def get_next_patch(current_patch: str, patches_dir: str):
 
 def main():
     if len(sys.argv) != 2:
-        panic("Usage: python3 scripts/next_patch.py <patch_file>\n")
+        panic("usage: python3 scripts/next_patch.py <patch_file>\n")
 
     current_patch = sys.argv[1]
 

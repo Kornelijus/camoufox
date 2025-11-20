@@ -16,7 +16,6 @@ import sys
 from dataclasses import dataclass
 
 from _utils import (
-    find_src_dir,
     get_moz_target,
     get_options,
     list_patches,
@@ -26,7 +25,8 @@ from _utils import (
     temp_cd,
     update_rustup,
 )
-from const import BuildArch, BuildTarget
+from const import BuildArch, BuildTarget, CAMOUFOX_SRC_DIR
+
 
 options, args = get_options()
 
@@ -39,9 +39,7 @@ class Patcher:
     target: str
 
     def apply_all(self):
-        version, release = extract_version_and_release()
-
-        with temp_cd(find_src_dir(".", version, release)):
+        with temp_cd(CAMOUFOX_SRC_DIR):
             run("cp -v ../firefox/assets/base.mozconfig mozconfig")
             print(f"Using build target: {self.moz_target}")
             self._update_mozconfig()
@@ -110,14 +108,12 @@ def extract_build_target() -> tuple[BuildTarget, BuildArch]:
 
 
 if __name__ == "__main__":
-    VERSION, RELEASE = extract_version_and_release()
     TARGET, ARCH = extract_build_target()
     MOZ_TARGET = get_moz_target(TARGET, ARCH)
     update_rustup(TARGET)
 
-    camoufox_src_dir = f"camoufox-{VERSION}-{RELEASE}"
-    if not os.path.exists(f"{camoufox_src_dir}/configure.py"):
-        panic(f"error: folder '{camoufox_src_dir}' doesn't look like a Firefox folder.")
+    if not os.path.exists(CAMOUFOX_SRC_DIR / "configure.py"):
+        panic(f"error: folder '{CAMOUFOX_SRC_DIR}' doesn't look like a Firefox folder.")
 
     patcher = Patcher(MOZ_TARGET, TARGET)
     patcher.apply_all()

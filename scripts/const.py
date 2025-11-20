@@ -5,7 +5,21 @@ Centralized constants for Camoufox build scripts.
 """
 
 from enum import StrEnum
-import sys
+from pathlib import Path
+import os
+
+SCRIPTS_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = SCRIPTS_DIR.parent
+
+BUNDLE_DIR = ROOT_DIR / "firefox" / "bundle"
+ASSETS_DIR = ROOT_DIR / "firefox" / "assets"
+PATCHES_DIR = ROOT_DIR / "firefox" / "patches"
+
+FIREFOX_VERSION = os.getenv("FIREFOX_VERSION")
+CAMOUFOX_RELEASE = os.getenv("CAMOUFOX_RELEASE", "dev")
+
+CAMOUFOX_BUILD_NAME = f"camoufox-{FIREFOX_VERSION}-{CAMOUFOX_RELEASE}"
+CAMOUFOX_SRC_DIR = ROOT_DIR / CAMOUFOX_BUILD_NAME
 
 
 class BuildTarget(StrEnum):
@@ -22,10 +36,6 @@ class BuildArch(StrEnum):
 
 AVAILABLE_TARGETS = [target.value for target in BuildTarget]
 AVAILABLE_ARCHS = [arch.value for arch in BuildArch]
-
-
-# Platform detection
-WINDOWS = sys.platform.startswith("win32") or sys.platform.startswith("msys")
 
 # Package configuration
 PACKAGE_FILE_EXTENSIONS = {
