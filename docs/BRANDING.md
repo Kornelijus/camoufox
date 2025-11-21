@@ -2,6 +2,8 @@
 
 This guide explains how to customize Camoufox's browser branding for different use cases.
 
+> **Quick Start:** For common scenarios, see [BRANDING_QUICKSTART.md](BRANDING_QUICKSTART.md)
+
 ## Overview
 
 Camoufox's branding is centralized in the `branding.env` configuration file. This makes it easy to:
