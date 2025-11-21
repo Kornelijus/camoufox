@@ -23,6 +23,17 @@ run() {
     fi
 }
 
+# Generate branding files from branding.env
+echo "Generating branding files from branding.env..."
+pushd .. > /dev/null
+python3 scripts/generate-branding.py
+if [ $? -ne 0 ]; then
+    echo "Failed to generate branding files"
+    popd > /dev/null
+    exit 1
+fi
+popd > /dev/null
+
 # Copy the search-config.json file
 run 'cp -v ../firefox/assets/search-config.json services/settings/dumps/main/search-config.json'
 
