@@ -55,6 +55,7 @@ Camoufox is the most modern, effective & future-proof open source solution for a
 * Debloated & optimized for memory efficiency ⚡
 * [PyPi package](https://pypi.org/project/camoufox/) for updates & auto fingerprint injection 📦
 * Stays up to date with the latest Firefox version 🕓
+* Easy branding configuration for forks & stealth (see [BRANDING.md](docs/BRANDING.md)) 🏷️
 
 ---
 

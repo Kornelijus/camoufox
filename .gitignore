@@ -49,3 +49,5 @@ closedsrc
 # Misc. local files
 .misc/
 artifacts/
+# Branding examples (keep only branding.env)
+branding.*.env

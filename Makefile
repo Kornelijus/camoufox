@@ -19,7 +19,7 @@ pacman := python python-pip p7zip go msitools wget aria2
         package-linux package-macos package-windows vcredist_arch patch unpatch \
         workspace check-arg edit-cfg ff-dbg tests tests-parallel update-ubo-assets tagged-checkpoint \
         git-fetch git-dir git-bootstrap check-not-git \
-		lint lint-fix check-ff-version get-ff-commit \
+		lint lint-fix check-ff-version get-ff-commit generate-branding \
 
 help:
 	@echo "Available targets:"
@@ -41,6 +41,7 @@ help:
 	@echo "  copy-additions  - Copy additions/ and settings/ to source (fast, no git operations)"
 	@echo "  retag-baseline  - Rebuild 'unpatched' tag with latest additions/ changes (git only)"
 	@echo "  tagged-checkpoint - Save current state with reusable 'checkpoint' tag"
+	@echo "  generate-branding - Generate branding files from branding.env"
 	@echo "  edits           - Camoufox developer UI"
 	@echo "  edit-cfg        - Edit camoufox.cfg"
 	@echo "  workspace       - Sets the workspace to a patch, assuming its applied"
@@ -108,6 +109,11 @@ revert:
 
 revert-checkpoint:
 	cd $(cf_source_dir) && git reset --hard checkpoint && rm -f _READY browser/app/camoufox.exe.manifest
+
+generate-branding:
+	@echo "Generating branding files from branding.env..."
+	python3 scripts/generate-branding.py
+	@echo "✓ Branding files generated."
 
 copy-additions:
 	@echo "Copying additions/ and settings/ to source tree..."
