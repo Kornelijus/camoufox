@@ -5,14 +5,16 @@ import glob
 import os
 import shutil
 import tempfile
-from shlex import join
 
-from _utils import find_src_dir, get_moz_target, list_files, panic, run, temp_cd
+from _utils import get_moz_target, list_files, panic, run, temp_cd
 from const import (
     AVAILABLE_ARCHS,
     AVAILABLE_TARGETS,
+    CAMOUFOX_BUILD_NAME,
+    CAMOUFOX_SRC_DIR,
     PACKAGE_FILE_EXTENSIONS,
     PACKAGE_REMOVE_PATHS,
+    BUNDLE_DIR,
     BuildTarget,
 )
 
@@ -23,10 +25,10 @@ def add_includes_to_package(
     fonts: list[str] | None,
     new_file: str,
     target: BuildTarget,
-):
+) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         # Extract and remove package_file
-        run(join(["7z", "x", package_file, f"-o{temp_dir}"]), exit_on_fail=False)
+        run(["7z", "x", package_file, f"-o{temp_dir}"], exit_on_fail=False)
         os.remove(package_file)
 
         if package_file.endswith(".tar.xz"):
@@ -83,7 +85,7 @@ def add_includes_to_package(
         if target == BuildTarget.LINUX:
             for font in fonts or []:
                 shutil.copytree(
-                    os.path.join("firefox/bundle", "fonts", font),
+                    os.path.join(BUNDLE_DIR, "fonts", font),
                     os.path.join(fonts_dir, font),
                     dirs_exist_ok=True,
                 )
@@ -93,7 +95,7 @@ def add_includes_to_package(
             os.makedirs(fonts_dir, exist_ok=True)
             for font in fonts or []:
                 for file in list_files(
-                    root_dir=os.path.join("firefox/bundle", "fonts", font), suffix="*"
+                    root_dir=os.path.join(BUNDLE_DIR, "fonts", font), suffix="*"
                 ):
                     shutil.copy2(file, os.path.join(fonts_dir, os.path.basename(file)))
 
@@ -105,10 +107,10 @@ def add_includes_to_package(
                 os.remove(os.path.join(target_dir, path))
 
         # Update package
-        run(join(["7z", "u", new_file, f"{temp_dir}/*", "-r", "-mx=5"]))
+        run(["7z", "u", new_file, f"{temp_dir}/*", "-r", "-mx=5"])
 
 
-def get_args():
+def get_args() -> argparse.Namespace:
     """Get CLI parameters"""
     parser = argparse.ArgumentParser(
         description="Package Camoufox for different operating systems."
@@ -132,19 +134,18 @@ def get_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = get_args()
     file_ext = PACKAGE_FILE_EXTENSIONS[args.os]
 
     # Build the package
-    src_dir = find_src_dir(".", args.version, args.release)
     moz_target = get_moz_target(target=args.os, arch=args.arch)
-    with temp_cd(src_dir):
+    with temp_cd(CAMOUFOX_SRC_DIR):
         # Create package files
         run("./mach package")
         # Find package files
         search_path = os.path.abspath(
-            f"obj-{moz_target}/dist/camoufox-{args.version}-{args.release}.*.{file_ext}"
+            f"obj-{moz_target}/dist/{CAMOUFOX_BUILD_NAME}.*.{file_ext}"
         )
 
     # Find package file
@@ -157,7 +158,7 @@ def main():
         package_file = file
         break
     else:
-        panic(f"Error: No package file found matching pattern: {search_path}")
+        panic(f"error: No package file found matching pattern: {search_path}")
 
     # Copy to a unique temp location to avoid parallel build conflicts
     # Use architecture in temp name to ensure uniqueness
@@ -165,7 +166,7 @@ def main():
     shutil.copy2(package_file, temp_package)
 
     # Add includes to the package
-    new_name = f"camoufox-{args.version}-{args.release}-{args.os[:3]}.{args.arch}.zip"
+    new_name = f"{CAMOUFOX_BUILD_NAME}-{args.os[:3]}.{args.arch}.zip"
     add_includes_to_package(
         package_file=temp_package,
         includes=args.includes,

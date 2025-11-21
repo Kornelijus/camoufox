@@ -6,24 +6,26 @@ GUI for managing Camoufox patches.
 
 import os
 import re
-import sys
 
 import easygui
 
-from _utils import find_src_dir, is_bootstrap_patch, list_patches, patch, run, temp_cd
+from const import CAMOUFOX_SRC_DIR, ROOT_DIR, PATCHES_DIR
+from enum import StrEnum
+
+from _utils import is_bootstrap_patch, list_patches, patch, run, temp_cd
 
 
-def into_camoufox_dir():
-    """Cd to the camoufox-* folder"""
-    this_script = os.path.dirname(os.path.abspath(__file__))
-    # Go one directory up from the current script path
-    os.chdir(os.path.dirname(this_script))
-    os.chdir(find_src_dir(".", version=sys.argv[1], release=sys.argv[2]))
+class PatchStatus(StrEnum):
+    APPLIED = "APPLIED"
+    NOT_APPLIED = "NOT APPLIED"
+    BROKEN = "BROKEN"
+    BOOTSTRAP = "BOOTSTRAP"
+    UNKNOWN = "UNKNOWN"
 
 
 def reset_camoufox():
     """Reset the Camoufox source"""
-    with temp_cd(".."):
+    with temp_cd(ROOT_DIR):
         run("make revert")
     run("touch _READY")
 
@@ -38,17 +40,18 @@ def run_patches(reverse=False):
     for patch_file in patch_files:
         # If the patch is a bootstrap patch, mark it with the appropriate label
         if is_bootstrap_patch(patch_file):
-            status = "BOOTSTRAP"
+            status = PatchStatus.BOOTSTRAP
         else:
             can_apply, can_reverse, broken = check_patch(patch_file)
+
             if broken:
-                status = "BROKEN"
+                status = PatchStatus.BROKEN
             elif can_reverse:
-                status = "APPLIED"
+                status = PatchStatus.APPLIED
             elif can_apply:
-                status = "NOT APPLIED"
+                status = PatchStatus.NOT_APPLIED
             else:
-                status = "UNKNOWN"
+                status = PatchStatus.UNKNOWN
         # Format the display string (remove the '../firefox/patches/' prefix)
         display_name = f"[{status}] {patch_file[len('../firefox/patches/') :].strip()}"
         display_choices.append(display_name)
@@ -101,7 +104,7 @@ def open_patch_workspace(selected_patch, stop_at_patch=False):
 
     # Set checkpoint
     if applied_patches:
-        with temp_cd(".."):
+        with temp_cd(ROOT_DIR):
             run("make checkpoint")
 
     # Set message for patch result
@@ -200,7 +203,7 @@ def handle_choice(choice):
         case "Create new patch":
             # Reset camoufox, apply all patches, then create a checkpoint
             reset_camoufox()
-            with temp_cd(".."):
+            with temp_cd(ROOT_DIR):
                 run("make dir")
                 run("make checkpoint")
             easygui.msgbox(
@@ -244,7 +247,7 @@ def handle_choice(choice):
             )
 
         case "Set checkpoint":
-            with temp_cd(".."):
+            with temp_cd(ROOT_DIR):
                 run("make checkpoint")
             easygui.msgbox("Checkpoint set.", "Checkpoint Set")
 
@@ -347,7 +350,7 @@ def handle_choice(choice):
 
         case "Write workspace to patch":
             # Open a file dialog to select a file to write the diff to
-            with temp_cd("../firefox/patches"):
+            with temp_cd(PATCHES_DIR):
                 file_path = easygui.filesavebox(
                     "Select a file to write the patch to",
                     "Write Patch",
@@ -363,7 +366,7 @@ def handle_choice(choice):
 
 
 if __name__ == "__main__":
-    into_camoufox_dir()
+    os.chdir(CAMOUFOX_SRC_DIR)
 
     while choice := easygui.choicebox(
         "Select an option:", "Camoufox Dev Tools", choices
