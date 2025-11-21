@@ -49,5 +49,6 @@ closedsrc
 # Misc. local files
 .misc/
 artifacts/
-# Branding examples (keep only branding.env)
+# Branding examples (keep branding.env and branding.firefox.env, exclude others)
 branding.*.env
+!branding.firefox.env

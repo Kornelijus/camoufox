@@ -185,3 +185,80 @@ When contributing from a private fork:
 4. Focus pull requests on functional improvements, not branding
 
 This allows forks to maintain unique branding while still contributing code improvements back to Camoufox.
+
+## Real-World Examples
+
+### Example 1: Reduce Fingerprinting (Issue #1 from RFC)
+
+**Problem:** When Firefox forks upgraded from Firefox 135 → 140, the User-Agent header exposed custom branding like "Camoufox" instead of "Firefox", making them trivial to detect by WAFs like DataDome and Cloudflare.
+
+**Solution:** Use Firefox branding in UI while keeping unique internal app paths:
+
+```bash
+# branding.env
+BRAND_SHORT_NAME=Firefox
+BRAND_FULL_NAME=Mozilla Firefox  
+BRAND_VENDOR=Mozilla
+
+# Keep unique to avoid conflicts
+APP_NAME=camoufox
+APP_PROFILE=camoufox
+BRANDING_DIR=camoufox
+```
+
+Then regenerate:
+```bash
+make generate-branding
+make copy-additions  # If using git workflow
+make build
+```
+
+**Result:** 
+- Window title shows "Firefox"
+- About dialog shows "Mozilla Firefox"
+- Binary remains `camoufox` (no conflict with real Firefox)
+- Profile stored in `~/.camoufox/` (no conflict)
+- WAFs see standard Firefox branding, reducing detection surface
+
+**Note:** Runtime User-Agent is controlled separately via MaskConfig, not by branding files.
+
+### Example 2: Private Fork Collaboration (Issue #2 from RFC)
+
+**Problem:** Multiple teams fork Camoufox for internal use with custom branding. When they improve the codebase, contributing back creates merge conflicts in hardcoded branding files.
+
+**Solution:** Each fork customizes only `branding.env`:
+
+```bash
+# Fork A's branding.env
+BRAND_SHORT_NAME=InternalBrowser
+BRAND_FULL_NAME=InternalBrowser Pro
+BRAND_VENDOR=CompanyA
+APP_NAME=internalbrowser
+APP_PROFILE=internalbrowser
+BRANDING_DIR=internalbrowser
+```
+
+When Fork A fixes a bug or adds a feature:
+1. They commit functional changes (patches, code, etc.)
+2. They DON'T commit generated branding files
+3. They open a PR to upstream Camoufox
+4. Upstream maintainers merge without conflicts (branding.env differs but that's expected)
+5. Fork A can later pull upstream updates without branding conflicts
+
+**Workflow:**
+```bash
+# Fork maintainer
+git checkout -b fix-webgl-leak
+# ... make fixes to patches/webgl-spoofing.patch ...
+git add patches/webgl-spoofing.patch
+git commit -m "Fix WebGL parameter leak in headless mode"
+git push origin fix-webgl-leak
+# Open PR to upstream
+
+# Upstream can merge cleanly because branding.env isn't changed
+# Fork can pull updates and regenerate their branding
+git pull upstream main
+make generate-branding  # Regenerates fork's branding
+```
+
+This pattern enables a healthy ecosystem of forks that contribute improvements back upstream.
