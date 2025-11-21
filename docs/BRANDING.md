@@ -146,6 +146,18 @@ To create a completely new brand with custom icons:
 
 ## Troubleshooting
 
+### Running tests
+
+To verify the branding system works correctly:
+```bash
+python3 tests/test_branding.py
+```
+
+This tests:
+- Default Camoufox branding generation
+- Firefox stealth branding generation
+- All generated files contain correct values
+
 ### "Directory not found" errors
 
 If you change `BRANDING_DIR`, ensure the directory exists:
